@@ -1,104 +1,73 @@
 id: community.awakenedpoetrade.AwakenedPoETrade
 runtime: org.freedesktop.Platform
+runtime-version: '24.08'
 sdk: org.freedesktop.Sdk
-runtime-version: "24.08"
+base: org.electronjs.Electron2.BaseApp
+base-version: '24.08'
 command: awakened-poe-trade
-finish-args:
-  - --socket=wayland
-  - --socket=fallback-x11
-  - --socket=x11
-  - --share=ipc
-  - --share=network
-  - --device=dri
-  - --filesystem=host
-  - --system-talk-name=org.freedesktop.login1
-  - --talk-name=org.freedesktop.Notifications
-  - --env=PATH=/app/bin:/usr/bin:/app/lib/ffmpeg
-  - --env=GTK_USE_PORTAL=0
-  - --env=GDK_BACKEND=x11
-
-add-extensions:
-  org.freedesktop.Platform.ffmpeg-full:
-    directory: lib/ffmpeg
-    version: "24.08"
-    no-autodownload: true
-    autodelete: false
-
-cleanup:
-  - /include
-
+rename-icon: awakened-poe-trade
+rename-desktop-file: awakened-poe-trade.desktop
 license: MIT
-categories:
-  - Utility
-  - Game
 homepage: https://github.com/SnosMe/awakened-poe-trade
 description: |
   Awakened PoE Trade is an advanced trading tool for Path of Exile, providing price checks, item info, and more.
+finish-args:
+  - --share=network
+  - --device=dri
+  - --filesystem=home
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
+  - --talk-name=org.freedesktop.Notifications
+  - --socket=system-bus
+  - --socket=session-bus
+  - --system-talk-name=org.freedesktop.Flatpak
+  - --env=ELECTRON_TRASH=gio
+
+categories:
+  - Utility
+  - Game
 
 modules:
   - name: awakened-poe-trade
     buildsystem: simple
     build-commands:
       # Extract AppImage
-      - chmod +x Awakened-PoE-Trade-3.26.101.AppImage
-      - ./Awakened-PoE-Trade-3.26.101.AppImage --appimage-extract
+      - chmod +x awakened-poe-trade.AppImage
+      - ./awakened-poe-trade.AppImage --appimage-extract
+      - rm awakened-poe-trade.AppImage
 
-      # Create necessary directories
-      - mkdir -p /app/lib/ffmpeg
-      - mkdir -p /app/bin
-      - mkdir -p /app/awakened-poe-trade
-      - mkdir -p /app/share/applications
-      - mkdir -p /app/share/icons/hicolor/512x512/apps
+      # Fix desktop files
+      - install -Dm755 awakened-poe-trade /app/bin/awakened-poe-trade
+      - sed -i 's|^Exec=.*|Exec=/app/bin/awakened-poe-trade|g' squashfs-root/awakened-poe-trade.desktop 
+      - sed -i 's|^Icon=.*|Icon=community.awakenedpoetrade.AwakenedPoETrade|g' squashfs-root/awakened-poe-trade.desktop 
+      - install -Dm644 squashfs-root/awakened-poe-trade.desktop -t /app/share/applications
 
-      # Copy all application files to preserve structure
-      - cp -r squashfs-root/* /app/awakened-poe-trade/
+      # Install hicolors images
+      - install -dm755 /app/share/applications
+      - install -Dm644 squashfs-root/usr/share/icons/hicolor/512x512/apps/awakened-poe-trade.png -t /app/share/icons/hicolor/512x512/apps
+      - install -Dm644 squashfs-root/usr/share/icons/hicolor/256x256/apps/awakened-poe-trade.png -t /app/share/icons/hicolor/256x256/apps
+      - install -Dm644 squashfs-root/usr/share/icons/hicolor/128x128/apps/awakened-poe-trade.png -t /app/share/icons/hicolor/128x128/apps
+      - install -Dm644 squashfs-root/usr/share/icons/hicolor/64x64/apps/awakened-poe-trade.png -t /app/share/icons/hicolor/64x64/apps
+      - install -Dm644 squashfs-root/usr/share/icons/hicolor/48x48/apps/awakened-poe-trade.png -t /app/share/icons/hicolor/48x48/apps
+      - install -Dm644 squashfs-root/usr/share/icons/hicolor/32x32/apps/awakened-poe-trade.png -t /app/share/icons/hicolor/32x32/apps
+      - install -Dm644 squashfs-root/usr/share/icons/hicolor/24x24/apps/awakened-poe-trade.png -t /app/share/icons/hicolor/24x24/apps
+      - install -Dm644 squashfs-root/usr/share/icons/hicolor/16x16/apps/awakened-poe-trade.png -t /app/share/icons/hicolor/16x16/apps
 
-      # Fix desktop file
-      - sed -i 's|^Exec=.*|Exec=awakened-poe-trade|g' /app/awakened-poe-trade/awakened-poe-trade.desktop
-      - sed -i 's|^Icon=.*|Icon=community.awakenedpoetrade.AwakenedPoETrade|g' /app/awakened-poe-trade/awakened-poe-trade.desktop
+      - rm -f squashfs-root/{.DirIcon,AppRun,awakened-poe-trade.desktop.awakened-poe-trade.png.png}
 
-      # Install desktop file and icon
-      - cp /app/awakened-poe-trade/awakened-poe-trade.desktop /app/share/applications/community.awakenedpoetrade.AwakenedPoETrade.desktop
-      - cp /app/awakened-poe-trade/usr/share/icons/hicolor/512x512/apps/awakened-poe-trade.png /app/share/icons/hicolor/512x512/apps/community.awakenedpoetrade.AwakenedPoETrade.png
-
-      # Create wrapper script - force X11 for better compatibility
-      - |
-        cat > /app/bin/awakened-poe-trade << 'EOF'
-        #!/bin/bash
-        cd /app/awakened-poe-trade
-
-        # Force X11 backend for better Electron compatibility
-        export GDK_BACKEND=x11
-        export GTK_USE_PORTAL=0
-        export DISPLAY=${DISPLAY:-:0}
-
-        # Disable GTK scaling issues
-        export GDK_SCALE=1
-        export GDK_DPI_SCALE=1
-
-        # Base Electron flags optimized for X11
-        ELECTRON_FLAGS="--no-sandbox --disable-gpu-sandbox"
-        ELECTRON_FLAGS="$ELECTRON_FLAGS --disable-dev-shm-usage"
-        ELECTRON_FLAGS="$ELECTRON_FLAGS --disable-extensions"
-        ELECTRON_FLAGS="$ELECTRON_FLAGS --disable-features=VizDisplayCompositor"
-        ELECTRON_FLAGS="$ELECTRON_FLAGS --use-gl=desktop"
-        ELECTRON_FLAGS="$ELECTRON_FLAGS --ignore-gpu-blacklist"
-        ELECTRON_FLAGS="$ELECTRON_FLAGS --disable-web-security"
-
-        # Additional flags to reduce errors
-        ELECTRON_FLAGS="$ELECTRON_FLAGS --disable-background-timer-throttling"
-        ELECTRON_FLAGS="$ELECTRON_FLAGS --disable-backgrounding-occluded-windows"
-        ELECTRON_FLAGS="$ELECTRON_FLAGS --disable-renderer-backgrounding"
-        ELECTRON_FLAGS="$ELECTRON_FLAGS --disable-ipc-flooding-protection"
-
-        echo "Starting Awakened PoE Trade in X11 mode..."
-        echo "Flags: $ELECTRON_FLAGS"
-
-        exec ./awakened-poe-trade $ELECTRON_FLAGS "$@" 2>/dev/null
-        EOF
-      - chmod +x /app/bin/awakened-poe-trade
-
+      - mv squashfs-root /app/main/
+      - patch-desktop-filename /app/main/resources/app.asar
     sources:
       - type: file
+        dest-filename: awakened-poe-trade.AppImage
+        only-arches:
+          - x86_64
         url: https://github.com/SnosMe/awakened-poe-trade/releases/download/v3.26.101/Awakened-PoE-Trade-3.26.101.AppImage
-        sha512: 8a973281dc928bc479d4aa4b25730031142e878165c0da35ab4f8420b9c0e94fceb42c7587f463fac0d8618d785387f52617799b998cb35352305a6d71a4dc82
+        sha256: 9fbc707801cd61048340cc59a4711feb43d993adb277032c5bd6bb93741e5351
+
+      - type: script
+        dest-filename: awakened-poe-trade
+        commands:
+          - exec zypak-wrapper.sh /app/main/awakened-poe-trade "$@"
